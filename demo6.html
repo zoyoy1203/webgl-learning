@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>webgl 设置颜色标准化</title>
+  <style>
+    @import url("https://webglfundamentals.org/webgl/resources/webgl-tutorials.css");
+
+    body {
+      margin: 0;
+    }
+
+    canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="uiContainer">
+    <div id="ui">
+      <div id="x"></div>
+      <div id="y"></div>
+      <div id="angle"></div>
+      <div id="scaleX"></div>
+      <div id="scaleY"></div>
+    </div>
+  </div>
+  <script id="vertex-shader-2d" type="notjs">
+      attribute vec2 a_position;
+      attribute vec4 a_color;
+
+      uniform mat3 u_matrix;
+
+      varying vec4 v_color;
+
+      void main() {
+        // multiply the position by the matrix
+        gl_Position =vec4((u_matrix * vec3(a_position, 1)).xy, 0, 1);
+
+        v_color = a_color;
+      }
+    </script>
+  <script id="fragment-shader-2d" type="notjs">
+      precision mediump float;
+
+      varying vec4 v_color;
+
+      void main() {
+        gl_FragColor = v_color;
+      }
+    </script>
+  <!--
+    for most samples webgl-utils only provides shader compiling/linking and
+    canvas resizing because why clutter the examples with code that's the same in every sample.
+    See https://webglfundamentals.org/webgl/lessons/webgl-boilerplate.html
+    and https://webglfundamentals.org/webgl/lessons/webgl-resizing-the-canvas.html
+    for webgl-utils, m3, m4, and webgl-lessons-ui.
+    -->
+  <script src="https://webglfundamentals.org/webgl/resources/webgl-utils.js"></script>
+  <script src="https://webglfundamentals.org/webgl/resources/webgl-lessons-ui.js"></script>
+  <script src="https://webglfundamentals.org/webgl/resources/m3.js"></script>
+  <script>
+    function main() {
+      var canvas = document.querySelector("#canvas");
+      var gl = canvas.getContext("webgl");
+      if (!gl) {
+        return;
+      }
+
+      var program = webglUtils.createProgramFromScripts(gl, ["vertex-shader-2d", "fragment-shader-2d"]);
+
+      var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+      var colorAttributeLocation = gl.getAttribLocation(program, "a_color");
+
+      var matrixLocation = gl.getUniformLocation(program, "u_matrix");
+
+      var positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      setGeometry(gl);
+
+      var colorBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+      setColors(gl);
+
+      var translation = [200, 150];
+      var angleInRadians = 0;
+      var scale = [1, 1];
+      drawScene();
+
+      webglLessonsUI.setupSlider("#x", { value: translation[0], slide: updatePosition(0), max: gl.canvas.width });
+      webglLessonsUI.setupSlider("#y", { value: translation[1], slide: updatePosition(1), max: gl.canvas.height });
+      webglLessonsUI.setupSlider("#angle", { slide: updateAngle, max: 360 });
+      webglLessonsUI.setupSlider("#scaleX", { value: scale[0], slide: updateScale(0), min: -5, max: 5, step: 0.01, precision: 2 });
+      webglLessonsUI.setupSlider("#scaleY", { value: scale[1], slide: updateScale(1), min: -5, max: 5, step: 0.01, precision: 2 });
+
+      function updatePosition(index) {
+        return function (event, ui) {
+          translation[index] = ui.value;
+          drawScene();
+        }
+      }
+
+      function updateAngle(event, ui) {
+        var angleInDegress = 360 - ui.value;
+        angleInRadians = angleInDegress * Math.PI / 180;
+        drawScene();
+      }
+
+      function updateScale(index) {
+        return function (event, ui) {
+          scale[index] = ui.value;
+          drawScene();
+        }
+      }
+
+      function drawScene() {
+        webglUtils.resizeCanvasToDisplaySize(gl.canvas);
+
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        gl.useProgram(program);
+
+        // position
+        gl.enableVertexAttribArray(positionAttributeLocation);
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+        var size = 2;  // 2 components per iteration
+        var type = gl.FLOAT; // the data is 32bit floats
+        var normalize = false; // don't normalize the data
+        var stride = 0; // = 0 move forward sizse * sizeof(type) each iteration to get the next position
+        var offset = 0; // start at the beginning of the buffer
+        gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+
+        // color
+        gl.enableVertexAttribArray(colorAttributeLocation);
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+
+        // 告诉颜色属性如何从colorBuffer中提取数据 (ARRAY_BUFFER)
+        var size = 4;                 // 每次迭代使用四个单位数据
+        var type = gl.UNSIGNED_BYTE;  // 数据类型是8位的 UNSIGNED_BYTE 类型。
+        var normalize = true;         // 标准化数据
+        var stride = 0;               // 0 = 移动距离 * 单位距离长度sizeof(type) 
+        // 每次迭代跳多少距离到下一个数据
+        var offset = 0;               // 从缓冲的起始处开始
+        gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+
+        // compute the matrix
+        var matrix = m3.projection(gl.canvas.clientWidth, gl.canvas.clientHeight);
+        matrix = m3.translate(matrix, translation[0], translation[1]);
+        matrix = m3.rotate(matrix, angleInRadians);
+        matrix = m3.scale(matrix, scale[0], scale[1]);
+
+        // set the matrix
+        gl.uniformMatrix3fv(matrixLocation, false, matrix);
+
+        // draw the geometry
+        var primitiveType = gl.TRIANGLES;
+        var offset = 0;
+        var count = 6;
+        gl.drawArrays(primitiveType, offset, count);
+
+      }
+    }
+
+    function setGeometry(gl) {
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        -150, -100,
+        150, -100,
+        -150, 100,
+        150, -100,
+        -150, 100,
+        150, 100
+      ]), gl.STATIC_DRAW);
+    }
+
+    function setColors(gl) {
+      // 设置两个随机颜色
+      var r1 = Math.random() * 256; // 0 到 255.99999 之间
+      var b1 = Math.random() * 256; // 这些数据
+      var g1 = Math.random() * 256; // 在存入缓冲时
+      var r2 = Math.random() * 256; // 将被截取成
+      var b2 = Math.random() * 256; // Uint8Array 类型
+      var g2 = Math.random() * 256;
+
+      gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(   // Uint8Array
+        [
+          r1, b1, g1, 255,
+          r1, b1, g1, 255,
+          r1, b1, g1, 255,
+          r2, b2, g2, 255,
+          r2, b2, g2, 255,
+          r2, b2, g2, 255
+        ]), gl.STATIC_DRAW);
+    }
+
+    main();
+  </script>
+</body>
+
+</html>
