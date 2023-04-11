@@ -19,25 +19,22 @@
   <body>
     <canvas id="canvas"></canvas>
     <script id="vertex-shader-2d" type="notjs">
-      // an attribute will receive data from a buffer
+      // 属性 将从缓冲区接收数据
       attribute vec4 a_position;
 
-      // all shaders have a main function
       void main() {
-        // gl_Position is a special variable a vertex shaders
-        // is responsible for setting
+        //gl_Position 是顶点着色器的一个特殊变量
         gl_Position = a_position;
       }
     </script>
     <script id="fragment-shader-2d" type="notjs">
-      // fragment shaders don't a default precision so we need
-      // to pick one. mediump is a good default
+      // 片段着色器没有默认精度 所以我们需要设置下
+      // mediump 是一个很好的默认值
       precision mediump float;
 
       void main() {
-        // gl_FragColor is a special variable a fragment shader
-        // is responsible for setting
-        gl_FragColor = vec4(1, 0, 0.5, 1); // return redish-purple
+        //gl_FragColor 是片段着色器的特殊变量
+        gl_FragColor = vec4(1, 0, 0.5, 1);
       }
     </script><!--
     for most samples webgl-utils only provides shader compiling/linking and
@@ -74,70 +71,66 @@
       }
 
       function main() {
-        // get a webgl context
         var canvas = document.querySelector("#canvas");
         var gl = canvas.getContext("webgl");
         if (!gl) {
           return;
         }
 
-        // get the strings for our glsl shaders
+        // 获取我们的 glsl 着色器的字符串
         var vertexShaderSource = document.querySelector("#vertex-shader-2d").text;
         var fragmentShaderSource = document.querySelector("#fragment-shader-2d").text;
 
-        // create glsl shaders, upload the glsl source, compile the shaders
+        // 创建 glsl 着色器，上传 glsl 源代码，编译着色器
         var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
         var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
 
-        // link the two shaders into a program
+        //c将两个着色器链接到一个程序中
         var program = createProgram(gl, vertexShader, fragmentShader);
 
-        // look up where the vertex data needs to go
+        // 查找顶点数据需要去的地方， 即a_position属性值所在的位置
         var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
 
-        // create a buffer and put three 2d clip space points in it
+        // 创建一个缓冲区并在其中放置三个 2d 剪辑空间点
         var positionBuffer = gl.createBuffer();
-
-        // bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+        // 将其绑定到 ARRAY_BUFFER（将其视为 ARRAY_BUFFER = positionBuffer）
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-
         var positions = [
           0, 0,
           0, 0.5,
           0.7, 0,
         ]
-
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-        // code above this line is initialization code
-        // code below this line is rendering code
+        //这一行上面的代码是初始化代码：创建了着色程序和顶点数据缓冲区
+        //这一行下面的代码是渲染代码
 
         webglUtils.resizeCanvasToDisplaySize(gl.canvas);
 
-        // tell webgl how to convert from clip space to pixels
+        //告诉 webgl 如何从剪辑空间转换为像素
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-        // clear the canvas
+        //清除画布
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         
-        // tell it to use our program(pair of shaders)
+        //告诉它使用我们的程序（一对着色器）
         gl.useProgram(program);
 
-        // turn on the attribute
+        //开启属性
         gl.enableVertexAttribArray(positionAttributeLocation);
 
-        // bind the position buffer
+        //绑定位置缓冲区
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
-        // tell the attribute how to get data out of positionBuffer(ARRAY_BUFFER)
+        //告诉属性如何从 positionBuffer(ARRAY_BUFFER) 中获取数据
         var size = 2;  // 2 components per iteration
         var type = gl.FLOAT; // the data is 32bit floats
         var normalize = false; // don't normalize the data
         var stride = 0; // = 0 move forward sizse * sizeof(type) each iteration to get the next position
         var offset = 0; // start at the beginning of the buffer
+        // 一个隐藏信息是gl.vertexAttribPointer是将属性绑定到当前的ARRAY_BUFFER，即属性绑定到了positionBuffer上
         gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
-
 
         // draw
         var primitiveType = gl.TRIANGLES;
